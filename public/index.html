@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🐢 海龟汤 - 联机推理</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ===== 入口页 ===== -->
+<div id="pageLobby" class="page active">
+  <div class="lobby-container">
+    <div class="logo">
+      <div class="logo-icon">🐢</div>
+      <h1>海龟汤</h1>
+      <p class="subtitle">联机情境推理游戏</p>
+    </div>
+    <div class="lobby-card">
+      <div class="form-group">
+        <label>你的昵称</label>
+        <input type="text" id="nicknameInput" maxlength="10" placeholder="输入昵称（最多10字）">
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="createRoom()">🎮 创建房间</button>
+        <button class="btn btn-secondary" onclick="showJoin()">🔑 加入房间</button>
+      </div>
+      <div id="joinSection" class="join-section hidden">
+        <div class="form-group">
+          <label>房间码</label>
+          <input type="text" id="roomCodeInput" maxlength="4" placeholder="输入4位房间码" style="text-transform:uppercase;letter-spacing:4px;text-align:center;font-size:20px;">
+        </div>
+        <button class="btn btn-primary" onclick="joinRoom()">🚪 加入</button>
+      </div>
+      <div id="lobbyError" class="error-msg"></div>
+    </div>
+    <div class="lobby-footer">
+      <p>👥 支持3-5人联机 · 🧠 系统主持 · 🏆 推理积分赛</p>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 房间页 ===== -->
+<div id="pageRoom" class="page hidden">
+  <div class="room-container">
+    <div class="room-header">
+      <div class="room-code">房间码: <span id="roomCodeDisplay">----</span></div>
+      <div class="room-players-count"><span id="playerCount">0</span>/5</div>
+    </div>
+    <div class="player-list" id="playerList"></div>
+    <div class="room-actions">
+      <div id="readySection">
+        <button class="btn btn-ready" id="btnReady" onclick="toggleReady()">✅ 准备</button>
+      </div>
+      <div id="hostSection" class="hidden">
+        <button class="btn btn-primary" id="btnStart" onclick="startGame()">🚀 开始游戏</button>
+        <div class="hint-text">至少3人准备后可开始</div>
+      </div>
+      <div id="waitingSection" class="hidden">
+        <div class="hint-text">等待房主开始游戏...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 游戏页 ===== -->
+<div id="pageGame" class="page hidden">
+  <!-- 顶部栏 -->
+  <div class="game-header">
+    <div class="round-info">第 <span id="roundNum">1</span>/<span id="totalRounds">3</span> 轮</div>
+    <div class="game-players">
+      <div id="gamePlayerAvatars"></div>
+    </div>
+  </div>
+
+  <!-- 故事面板 -->
+  <div class="story-panel">
+    <div class="story-header">
+      <span class="story-title" id="storyTitle">故事标题</span>
+      <div class="story-meta">
+        <span class="difficulty" id="storyDifficulty">★★★</span>
+        <span class="tags" id="storyTags"></span>
+      </div>
+    </div>
+    <div class="story-body" id="storyBody">故事内容加载中...</div>
+  </div>
+
+  <!-- 计时器 & 当前回合 -->
+  <div class="turn-bar" id="turnBar">
+    <div class="turn-info">
+      <span id="turnPlayer">等待中</span> 的回合
+      <span class="timer" id="timerDisplay">--</span>
+    </div>
+    <div class="timer-bar"><div class="timer-fill" id="timerFill"></div></div>
+  </div>
+
+  <!-- 操作区 -->
+  <div class="action-area" id="actionArea">
+    <div class="action-row">
+      <input type="text" id="questionInput" placeholder="输入你的问题..." maxlength="200" disabled>
+      <button class="btn btn-ask" id="btnAsk" disabled onclick="askQuestion()">提问</button>
+      <button class="btn btn-pass" id="btnPass" disabled onclick="passQuestion()">跳过</button>
+    </div>
+    <div class="action-row secondary">
+      <button class="btn btn-hint" onclick="requestHint()">💡 提示</button>
+      <button class="btn btn-guess" onclick="showGuessModal()">🧠 猜答案</button>
+      <button class="btn btn-reveal hidden" id="btnReveal" onclick="revealAnswer()">🔓 揭晓答案</button>
+    </div>
+  </div>
+
+  <!-- 问题日志 -->
+  <div class="log-section">
+    <div class="log-header">
+      <span>📋 提问记录</span>
+      <span class="log-count" id="logCount">0 条</span>
+    </div>
+    <div class="log-list" id="logList">
+      <div class="log-empty">问题会显示在这里...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 揭晓 / 结果页 ===== -->
+<div id="pageReveal" class="page hidden">
+  <div class="reveal-container">
+    <div class="reveal-icon">🔍</div>
+    <h2 id="revealTitle">真相大白</h2>
+    <div class="reveal-guesser" id="revealGuesser"></div>
+    <div class="reveal-answer" id="revealAnswer"></div>
+    <div class="reveal-actions">
+      <button class="btn btn-primary" id="btnNextRound" onclick="nextRound()">➡️ 下一轮</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 结算页 ===== -->
+<div id="pageGameOver" class="page hidden">
+  <div class="gameover-container">
+    <div class="gameover-icon">🏆</div>
+    <h1>游戏结束</h1>
+    <div class="rankings" id="rankings"></div>
+    <div class="gameover-actions">
+      <button class="btn btn-primary" onclick="restartGame()">🔄 再来一局</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 猜答案弹窗 ===== -->
+<div id="guessModal" class="modal hidden">
+  <div class="modal-content">
+    <div class="modal-header">
+      <span>🧠 你的推理</span>
+      <span class="modal-close" onclick="hideGuessModal()">✕</span>
+    </div>
+    <textarea id="guessInput" placeholder="写下你的完整推理..." rows="5" maxlength="1000"></textarea>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="submitGuess()">提交推理</button>
+      <button class="btn btn-secondary" onclick="hideGuessModal()">取消</button>
+    </div>
+    <div id="guessResult" class="guess-result"></div>
+  </div>
+</div>
+
+<!-- ===== Toast ===== -->
+<div id="toastContainer"></div>
+
+<div id="connectionStatus" class="connection-status">🟢 已连接</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
