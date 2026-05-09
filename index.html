@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🐢 海龟汤 - 单人推理游戏</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0f0e17;--surface:#1a1932;--surface2:#232146;--primary:#ff8906;--accent:#7f5af0;--accent2:#2cb67d;--text:#fffffe;--text2:#94a1b2;--danger:#ff6b6b;--border:#2d2b55;--radius:12px;--radius-sm:8px}
+body{font-family:-apple-system,BlinkMacSystemFont,"Noto Sans CJK SC","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.page{display:none;padding:16px;max-width:700px;margin:0 auto}.page.active{display:block}.hidden{display:none!important}.btn{padding:10px 20px;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;transition:.2s}.btn:disabled{opacity:.3;cursor:not-allowed}.btn-primary{background:var(--primary);color:#000}.btn-primary:hover:not(:disabled){filter:brightness(1.1)}.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border)}.btn-accent{background:var(--accent);color:#fff}.btn-success{background:var(--accent2);color:#000}
+/* 入口 */
+.lobby{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;text-align:center}
+.lobby .icon{font-size:80px;animation:float 3s ease-in-out infinite}@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+.lobby h1{font-size:36px;background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-top:8px}
+.lobby .sub{color:var(--text2);font-size:14px;margin-top:4px}
+.lobby .desc{color:var(--text2);font-size:13px;max-width:380px;line-height:1.7;margin:12px 0}
+.lobby .btn{font-size:18px;padding:14px 48px;border-radius:50px}
+/* 游戏面板 */
+.game-header{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);margin-bottom:16px;flex-wrap:wrap;gap:8px}
+.game-header .info{font-size:13px;color:var(--text2)}.game-header .score{color:var(--primary);font-weight:700}
+.story-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:12px}
+.story-card .title{font-size:18px;font-weight:700;color:var(--primary);margin-bottom:6px}
+.story-card .meta{font-size:12px;color:var(--text2);margin-bottom:10px;display:flex;gap:10px;flex-wrap:wrap}
+.story-card .meta span{background:var(--surface2);padding:2px 10px;border-radius:20px}
+.story-card .body{font-size:15px;line-height:1.9;white-space:pre-line}
+/* 提问区 */
+.ask-area{display:flex;gap:8px;margin-bottom:10px}.ask-area input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;color:var(--text);font-size:14px;outline:none}.ask-area input:focus{border-color:var(--accent)}
+.action-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}.action-row .btn{flex:1;min-width:80px;font-size:13px;padding:8px 12px}
+/* 日志 */
+.log-section{margin-top:12px}.log-header{font-size:13px;color:var(--text2);margin-bottom:8px;display:flex;justify-content:space-between}
+.log-list{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);max-height:350px;overflow-y:auto}
+.log-empty{padding:30px;text-align:center;color:var(--text2);font-size:13px}
+.log-item{padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px}.log-item:last-child{border-bottom:none}
+.log-item .q{color:var(--text);margin-bottom:3px}.log-item .a{color:var(--accent2)}.log-item .a.no{color:var(--danger)}.log-item .a.irrelevant{color:var(--text2)}.log-item .a.key{color:var(--primary);font-weight:600}.log-item .a.hint{color:var(--accent);font-style:italic}.log-item .name{color:var(--text2);font-size:11px}
+/* 揭晓 */
+.reveal{text-align:center;padding:40px 20px}.reveal .icon{font-size:64px;margin-bottom:12px}.reveal h2{font-size:28px;color:var(--primary);margin-bottom:20px}
+.reveal .answer{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;text-align:left;white-space:pre-line;line-height:1.9;font-size:15px;margin-bottom:20px}
+/* 弹窗 */
+.modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:100}.modal.hidden{display:none}
+.modal-content{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;width:90%;max-width:450px}
+.modal-header{display:flex;justify-content:space-between;align-items:center;font-weight:600;margin-bottom:12px}
+.modal-close{cursor:pointer;color:var(--text2);font-size:20px}.modal-close:hover{color:var(--danger)}
+.modal textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;color:var(--text);font-size:14px;outline:none;resize:vertical;font-family:inherit;line-height:1.6;min-height:100px}.modal textarea:focus{border-color:var(--accent)}
+.modal-actions{display:flex;gap:10px;margin-top:12px}.modal-actions .btn{flex:1}
+.guess-result{margin-top:10px;font-size:13px;text-align:center;line-height:1.6}
+/* toast */
+#toastContainer{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:200;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+.toast{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 20px;font-size:13px;animation:toastIn .3s ease-out;pointer-events:auto;box-shadow:0 4px 20px rgba(0,0,0,.4);max-width:90vw}
+.toast.success{border-left:3px solid var(--accent2)}.toast.error{border-left:3px solid var(--danger)}.toast.info{border-left:3px solid var(--accent)}
+@keyframes toastIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:480px){.lobby h1{font-size:28px}}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+
+<div id="pageLobby" class="page active">
+  <div class="lobby">
+    <div class="icon">🐢</div>
+    <h1>海龟汤</h1>
+    <p class="sub">单人情境推理游戏</p>
+    <p class="desc">主持人讲一个故事开头，你通过提问来推理真相。<br>主持人只回答「是」「否」「无关」「关键」。<br>看看你能猜对几个！</p>
+    <button class="btn btn-primary" onclick="startGame()">🎮 开始推理</button>
+  </div>
+</div>
+
+<div id="pageGame" class="page hidden">
+  <div class="game-header">
+    <div class="info">第 <span id="roundNum">1</span>/<span id="totalRounds">8</span> 个故事</div>
+    <div class="info">✅ 猜对 <span id="correctCount">0</span> 个</div>
+  </div>
+
+  <div class="story-card">
+    <div class="title" id="storyTitle">故事标题</div>
+    <div class="meta">
+      <span id="storyDifficulty">★★★</span>
+      <span id="storyTags"></span>
+    </div>
+    <div class="body" id="storyBody">加载中...</div>
+  </div>
+
+  <div class="ask-area">
+    <input type="text" id="questionInput" placeholder="输入你的问题..." maxlength="200">
+    <button class="btn btn-accent" id="btnAsk" onclick="askQuestion()">提问</button>
+  </div>
+
+  <div class="action-row">
+    <button class="btn btn-secondary" onclick="requestHint()">💡 提示</button>
+    <button class="btn btn-success" onclick="showGuessModal()">🧠 猜答案</button>
+    <button class="btn btn-secondary" onclick="revealAnswer()">🔓 看答案</button>
+  </div>
+
+  <div class="log-section">
+    <div class="log-header">
+      <span>📋 提问记录（<span id="questionCount">0</span> 次）</span>
+      <span id="hintCount" style="color:var(--accent)">提示可用: 3</span>
+    </div>
+    <div class="log-list" id="logList">
+      <div class="log-empty">开始提问吧！</div>
+    </div>
+  </div>
+</div>
+
+<div id="pageReveal" class="page hidden">
+  <div class="reveal">
+    <div class="icon">🔍</div>
+    <h2 id="revealTitle">真相大白</h2>
+    <div id="revealResult" style="color:var(--accent2);font-size:16px;margin-bottom:16px"></div>
+    <div class="answer" id="revealAnswer"></div>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="nextStory()">➡️ 下一个故事</button>
+      <button class="btn btn-secondary" onclick="backToLobby()">🏠 返回首页</button>
+    </div>
+  </div>
+</div>
+
+<div id="guessModal" class="modal hidden">
+  <div class="modal-content">
+    <div class="modal-header">
+      <span>🧠 你的推理</span>
+      <span class="modal-close" onclick="hideGuessModal()">✕</span>
+    </div>
+    <textarea id="guessInput" placeholder="写下你的完整推理..." maxlength="1000"></textarea>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="submitGuess()">提交推理</button>
+      <button class="btn btn-secondary" onclick="hideGuessModal()">取消</button>
+    </div>
+    <div id="guessResult" class="guess-result"></div>
+  </div>
+</div>
+
+<div id="toastContainer"></div>
+
+<script>
+// ============================================================
+// 故事库（8个精选故事）
+// ============================================================
+const STORIES = [
+  {
+    id:"s1", title:"沉默的证人", difficulty:3, tags:["逻辑推理","反转"],
+    story:`深夜，一名男子回到家中，发现妻子倒在血泊中，已经死亡。
+他颤抖着拨打了报警电话。
+
+警察赶到后，男子悲痛欲绝地说：
+"我在外面加班，一回来就发现她……"
+"我没有看到任何人从家里离开。"
+
+警探环顾四周后说：
+"你在撒谎。你就是凶手。"
+
+请问：警探为什么认定男子在撒谎？`,
+    answer:`男子说他"没有看到任何人从家里离开"——但他根本不可能"看到"任何人离开。
+因为他到家时妻子已经死了，凶手显然已经离开。
+如果他是清白的，他只能说"我没有看到凶手"或者"不知道发生了什么"。
+而他脱口而出"没有看到任何人离开"，说明他知道当时应该有人离开——因为他就是那个离开的人。
+他作案后离开现场，假装刚刚回家，但话语中的逻辑漏洞出卖了他。`,
+    hints:["注意男子说的每一个字——问题出在他的措辞上。","如果你是清白的，你会怎么描述当时的场景？","一个不在场的证人，怎么会知道没有人经过？"]
+  },
+  {
+    id:"s2", title:"第三支烟", difficulty:4, tags:["密室","诡计"],
+    story:`一名男子被发现死在密室里。
+房间门窗紧锁，没有任何打斗痕迹，也没有凶器。
+法医鉴定：死亡时间约在晚上8点左右，死因是窒息。
+
+房间里唯一的线索是：烟灰缸里有三支烟蒂。
+两支是同一品牌，另一支是不同品牌。
+三支的过滤嘴上都没有唇印。
+
+调查得知，死者生前从不吸烟。
+
+请问：这是自杀还是他杀？真相是什么？`,
+    answer:`这是他杀。
+凶手与死者见面，递给死者一支烟（死者虽不吸但接了），凶手自己也点了一支。
+凶手将死者窒息后，取走死者手中未吸完的烟（留下一个不同品牌的烟蒂），又点了自己的第二支烟。
+这样制造出"三人在场"的假象——两支同品牌（凶手2次）、一支不同（死者手中取下的）。
+但死者不吸烟，过滤嘴无唇印说明没人真正吸过那支烟。
+实际上只有两人在场，烟蒂是凶手故意混淆视听的手法。`,
+    hints:["为什么一个不吸烟的人手上会有一支烟？","三支烟蒂，几种可能性？","过滤嘴上没有唇印——这意味着什么？"]
+  },
+  {
+    id:"s3", title:"最后的晚餐", difficulty:4, tags:["投毒","人际关系"],
+    story:`一个寒冷的冬夜，五个人在一家高级法国餐厅共进晚餐。
+他们是：企业家张先生、他的妻子、私人医生、律师、商业伙伴。
+
+餐后，张先生突然倒地身亡。
+法医鉴定：食物中毒，被下在甜品中。
+
+但诡异的是：所有人都吃了同样的甜品——从前菜到甜品完全一样。
+服务员证实所有菜品同时上，没有区别对待。
+
+警方发现，毒药只出现在张先生的甜品中。
+
+请问：凶手是谁？他是怎么做到的？`,
+    answer:`凶手是张先生的妻子。
+她在自己手上（指甲缝或戒指内侧）预先藏好了毒药。
+甜品端上来后，她假装"帮你加点糖"或"尝一口"，用手触碰丈夫的甜品将毒药抖入。
+因为毒药需要一定剂量才致命，她手上微量不足以毒倒自己。
+她提前服了解药，所以吃同一道甜品也没事。`,
+    hints:["所有人都吃了同样的食物，毒药只在一个人的餐盘里——这意味着什么？","毒药是在上菜后才被加入的。谁有这个机会？","注意'手'这个线索。"]
+  },
+  {
+    id:"s4", title:"电梯里的男人", difficulty:5, tags:["心理","悬疑"],
+    story:`一栋20层写字楼的顶层是一家餐厅。
+一天中午，一名男子乘坐电梯从1楼前往18楼赴约。
+
+电梯到达18楼，门打开后，男子走了出来。
+他走了两步，突然转身，惊恐地看着电梯门缓缓关上。
+他疯了一样地按电梯按钮，但电梯已经下去了。
+
+然后他走到窗边，犹豫了几秒钟，纵身跳了下去。
+
+事后调查：这名男子事业有成，家庭幸福，没有任何自杀动机。
+
+请问：他为什么要跳楼？`,
+    answer:`男子有严重的幽闭恐惧症，平时不敢单独坐电梯。
+他之所以敢进电梯，是因为有一位熟人一起进了电梯。
+但电梯中途停靠时，熟人出去了。
+男子本也想跟出去，但门已关上，电梯独自上行。
+到达18楼后，他被恐惧笼罩，回头时产生了一个恐怖的联想：
+"熟人出去后电梯继续上行——如果那一层不是熟人按的，而是本来就有人在那里——那个人去哪了？"
+
+他怀疑有人在他和熟人之后悄悄进了电梯，躲在视线死角，然后在他没注意时也出去了。
+这个想法让他以为自己被跟踪了，在极度惊恐中失去了理智。
+
+而真相是：那个楼层确实是熟人自己按的，一切只是恐惧引发的妄想。`,
+    hints:["男子为什么一开始敢进电梯？","电梯中途停靠时发生了什么变化？","他在害怕什么？这种恐惧合理吗？"]
+  },
+  {
+    id:"s5", title:"雨夜的电话", difficulty:4, tags:["伦理","反转"],
+    story:`一个暴雨倾盆的夜晚。
+一名独居女子在家中被杀。
+
+警方排查后发现三个嫌疑人：
+A是她的前男友，有暴力前科，当晚没有不在场证明。
+B是她的闺蜜，最近因为借钱闹得很不愉快，当晚说在家看电影无人证实。
+C是她的同事，一直暗恋她被拒绝，当晚在公司加班有监控证实。
+
+关键细节：报警电话在案发后两分钟打出，通话47秒。
+报警人（女声）说："快来！XX小区XX栋XX号……有人闯进来了！救命！"然后中断。
+
+警方到达后发现门锁完好，没有撬痕。
+
+请问：凶手是谁？`,
+    answer:`凶手是闺蜜B。
+她来到死者家，两人因钱的问题争吵，B失手或故意杀了死者。
+之后B冷静地用自己的手机报警，但用了变声或死者手机。
+她在电话里说"有人闯进来了"——但她犯了一个致命错误：
+如果真的有入侵者，死者自己会尖叫求救，而不是B替她陈述"场景"。
+门锁完好的原因是——死者自己给B开的门。
+最终让警方锁定B的是报警录音的声纹分析。`,
+    hints:["门锁完好说明什么？","报警的人是谁？真的是受害者吗？","注意报警电话里的措辞"]
+  },
+  {
+    id:"s6", title:"镜中的倒影", difficulty:5, tags:["诡计","艺术"],
+    story:`一位著名的钢琴家在家中举办私人演奏会。
+出席的只有四位好友。
+
+演奏会进行到一半，钢琴家突然倒地，口吐白沫。
+等救护车赶到时，他已经死亡。
+
+警方发现，钢琴家的手和嘴唇上都有一种罕见的毒药残留。
+但所有宾客和钢琴家吃的、喝的完全一样。
+当晚的食物饮料经检测没有任何异常。
+
+唯一特别的是：钢琴家在演奏中一直戴着白色手套——这是他多年的习惯。
+
+请问：毒药是怎么进入钢琴家体内的？`,
+    answer:`凶手在演奏会前，在钢琴键和乐谱的翻页处涂抹了无色无味的毒药。
+钢琴家戴着手套演奏——但他在演奏间隙会取下右手手套来翻乐谱。
+毒在乐谱翻页处和琴键边缘。
+钢琴家翻谱时手指沾到毒药，然后在不自觉中（比如抿嘴唇或擦汗）将毒带入口中。
+只有他碰了钢琴和乐谱，所以只有他中毒。
+警方在钢琴和乐谱上不同位置的毒物浓度分布锁定了凶手的作案方式。`,
+    hints:["钢琴家戴了手套，为什么还会中毒？","注意手指和嘴唇上都有毒——两处怎么关联的？","毒药需要接触皮肤或口腔才会进入体内"]
+  },
+  {
+    id:"s7", title:"两张船票", difficulty:5, tags:["密室","身份互换"],
+    story:`一艘豪华游轮在大西洋上航行。
+一天早晨，一名乘客被发现死在自己的舱房里。
+死者是富商李先生，死因是窒息——被人用枕头闷死的。
+
+舱房的门从内部反锁（老式门闩，从外面无法打开）。
+窗户是封闭的。
+没有密道或通风口。
+完美的密室。
+
+但警方在上层甲板发现了一张被撕成两半的船票——是李先生的。
+然后在救生艇下发现了另一张完整的船票——也是李先生的。
+
+一个乘客，两张船票。
+
+请问：凶手是谁？密室怎么制造的？`,
+    answer:`李先生有一个孪生兄弟。
+两人上了一艘船，只买了一张票。弟弟假扮李先生活动，哥哥藏起来。
+作案当晚，弟弟（假李先生）约哥哥（真李先生）到舱房，将其闷死。
+然后弟弟以李先生的身份继续在船上活动。
+
+警方先入为主认为死者是"李先生"——但死的是哥哥。
+密室并不存在：门闩是死者（哥哥）从内部插上的，因为哥哥是自愿进入房间的。
+两张船票的真相：弟弟把哥哥的船票撕碎扔到甲板上制造"凶手慌乱销毁证据"的假象。
+最终弟弟因不小心用了哥哥的签名习惯而暴露。`,
+    hints:["两张船票说明可能有两个人。两人是什么关系？","谁死了谁活着？身份互换可能吗？","密室是怎么制造的？有没有可能根本没有密室？"]
+  },
+  {
+    id:"s8", title:"最后一杯酒", difficulty:5, tags:["诡计","心理博弈"],
+    story:`酒吧里，男人对女人说：
+"我们来玩个游戏。我在这两杯酒其中一杯里下毒——氰化物，30秒内毙命。
+你选一杯，我们同时喝掉。"
+
+女人冷笑一声，选了一杯，一饮而尽。
+男人拿起另一杯，也喝了下去。
+
+30秒后，女人毒发身亡。
+男人安然无恙。
+
+酒保可以作证：男人确实在女人面前将毒药放入其中一杯——而且男人喝的是自己没碰过的那杯。
+
+请问：男人是怎么做到的？`,
+    answer:`毒在冰块里。
+男人把毒药冻在冰块中心，放入女人选的那杯。
+两人同时喝的时候，冰块还没完全融化，酒是无毒的。
+男人说"30秒毙命"是谎言——实际上毒药在冰块融化后才释放。
+几分钟后冰块彻底融化，毒药释放，女人毒发身亡。
+男人那杯完全没有毒，他喝的自然没事。
+注意：毒在女人那杯的冰块里，而不是男人那杯。关键在于利用冰块延缓毒性发作时间，制造心理盲区。`,
+    hints:["两人同时喝酒，为什么女人死了而男人没事？","问题不在哪杯有毒，而在毒什么时候释放。","注意时间——30秒毙命的毒，但女人实际是几分钟后才死的"]
+  }
+];
+
+// ============================================================
+// 游戏状态
+// ============================================================
+let currentIndex = 0;
+let questions = [];
+let hintsUsed = 0;
+const MAX_HINTS = 3;
+let correctCount = 0;
+let guessedCurrent = false;
+let revealed = false;
+
+// ============================================================
+// DOM 引用
+// ============================================================
+const $ = id => document.getElementById(id);
+
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  $(id).classList.add('active');
+}
+
+function showToast(msg, type='info') {
+  const c = $('toastContainer');
+  const el = document.createElement('div');
+  el.className = 'toast '+type;
+  el.textContent = msg;
+  c.appendChild(el);
+  setTimeout(()=>el.remove(), 3000);
+}
+
+// ============================================================
+// 游戏逻辑
+// ============================================================
+function startGame() {
+  currentIndex = 0;
+  correctCount = 0;
+  loadStory(0);
+  showPage('pageGame');
+}
+
+function loadStory(index) {
+  const s = STORIES[index];
+  $('roundNum').textContent = index+1;
+  $('totalRounds').textContent = STORIES.length;
+  $('correctCount').textContent = correctCount;
+  $('storyTitle').textContent = s.title;
+  $('storyBody').textContent = s.story;
+  $('storyDifficulty').textContent = '★'.repeat(s.difficulty)+'☆'.repeat(5-s.difficulty);
+  $('storyTags').innerHTML = (s.tags||[]).map(t=>'<span>'+t+'</span>').join('');
+
+  hintsUsed = 0;
+  guessedCurrent = false;
+  revealed = false;
+  questions = [];
+  $('logList').innerHTML = '<div class="log-empty">开始提问吧！</div>';
+  $('questionCount').textContent = '0';
+  $('questionInput').value = '';
+  $('questionInput').disabled = false;
+  $('btnAsk').disabled = false;
+  updateHintDisplay();
+}
+
+function getCurrentStory() { return STORIES[currentIndex]; }
+
+function askQuestion() {
+  if (revealed) { showToast('答案已揭晓，进入下一个故事吧','info'); return; }
+  const q = $('questionInput').value.trim();
+  if (!q) return;
+  if (q.length > 200) { showToast('问题太长，最多200字','error'); return; }
+  $('questionInput').value = '';
+
+  if (/^(你好|嗨|hi|hello|hey)/i.test(q)) {
+    addLog('你','问候', '🤖 你好！请围绕故事提问。', 'irrelevant');
+    return;
+  }
+  if (/直接告诉我|说出答案|真相是|答案是什么|直接说/.test(q)) {
+    addLog('你', q, '🤖 我不能直接告诉你答案，请通过提问来推理！', 'irrelevant');
+    return;
+  }
+
+  const story = getCurrentStory();
+  const answer = answerQuestion(story, q);
+  addLog('你', q, answer.text, answer.type);
+}
+
+function answerQuestion(story, question) {
+  const q = question.toLowerCase().trim();
+  const a = story.answer.toLowerCase();
+
+  function hasKeyInfo(text, q) {
+    const sentences = text.split(/[。！？\n]/);
+    for (const s of sentences) {
+      const t = s.trim().toLowerCase();
+      if (!t||t.length<4) continue;
+      const words = q.split(/[\s,，。？?！!的了吗呢吧]/).filter(w=>w.length>=2);
+      const match = words.filter(w=>t.includes(w)).length;
+      if (match>=3) return true;
+    }
+    return false;
+  }
+
+  if (hasKeyInfo(a, q)) return {text:'🤖 是的，这很重要。',type:'key'};
+
+  const yesKw = ['是不是','是否','对吗','正确','存在','有没有','凶手','死者','门','窗','钥匙','毒','刀','枪','晚上','白天','在家','外面','认识','陌生','朋友','家人','妻子','丈夫','同事','男的','女的','酒店','餐厅','电梯','船上'];
+  const noKw = ['不是','没有','错','不正确','意外','事故','自然死亡','自杀','心脏病','巧合','不小心'];
+
+  const isYes = yesKw.some(k=>q.includes(k));
+  const isNo = noKw.some(k=>q.includes(k))&&!q.includes('不是');
+
+  if (isYes) {
+    if (isNo) return {text:'🤖 不是。',type:'no'};
+    const r = Math.random();
+    if (r<0.15) return {text:'🤖 这个信息很关键。',type:'key'};
+    return {text:'🤖 是。',type:'yes'};
+  }
+
+  const irr = ['🤖 这与故事无关。','🤖 对这个故事来说不重要。','🤖 无关。','🤖 这个问题对解开谜题没有帮助。'];
+  return {text:irr[Math.floor(Math.random()*irr.length)],type:'irrelevant'};
+}
+
+function addLog(player, question, answer, type) {
+  questions.push({player,question,answer,type});
+  const list = $('logList');
+  const empty = list.querySelector('.log-empty');
+  if (empty) empty.remove();
+
+  const div = document.createElement('div');
+  div.className = 'log-item';
+  let aClass = 'a';
+  if (type==='no') aClass+=' no';
+  else if (type==='irrelevant') aClass+=' irrelevant';
+  else if (type==='key') aClass+=' key';
+  else if (type==='hint') aClass+=' hint';
+
+  div.innerHTML = `<div class="q"><span class="name">${esc(player)}</span>：${esc(question)}</div>${answer?'<div class="'+aClass+'"> → '+esc(answer)+'</div>':''}`;
+  list.appendChild(div);
+  list.scrollTop = list.scrollHeight;
+  $('questionCount').textContent = questions.length;
+}
+
+function requestHint() {
+  if (revealed) { showToast('答案已揭晓','info'); return; }
+  const story = getCurrentStory();
+  if (!story.hints||story.hints.length===0) { showToast('这个故事没有提示','error'); return; }
+  if (hintsUsed>=MAX_HINTS) { showToast('提示已全部给出！','error'); return; }
+  if (hintsUsed>=story.hints.length) { showToast('提示已全部给出！','error'); return; }
+
+  const hint = story.hints[hintsUsed];
+  hintsUsed++;
+  addLog('💡 系统', '提示 '+hintsUsed+'/'+story.hints.length, hint, 'hint');
+  updateHintDisplay();
+}
+
+function updateHintDisplay() {
+  const story = getCurrentStory();
+  const max = Math.min(MAX_HINTS, story.hints?story.hints.length:0);
+  const left = max - hintsUsed;
+  $('hintCount').textContent = '提示可用: '+left;
+}
+
+function showGuessModal() {
+  if (revealed) { showToast('答案已揭晓，进入下一个故事吧','info'); return; }
+  if (guessedCurrent) { showToast('这个故事的推理已经提交过了','info'); return; }
+  $('guessModal').classList.remove('hidden');
+  $('guessInput').value = '';
+  $('guessResult').textContent = '';
+}
+
+function hideGuessModal() { $('guessModal').classList.add('hidden'); }
+
+function submitGuess() {
+  const guess = $('guessInput').value.trim();
+  if (guess.length<5) { $('guessResult').textContent='请写出完整的推理（至少5个字）'; $('guessResult').style.color='var(--danger)'; return; }
+
+  const story = getCurrentStory();
+  const sim = evaluateGuess(guess, story.answer);
+  const isCorrect = sim >= 0.6;
+
+  guessedCurrent = true;
+
+  if (isCorrect) {
+    correctCount++;
+    $('correctCount').textContent = correctCount;
+    const bonus = Math.max(10, 100 - questions.length*3);
+    $('guessResult').innerHTML = '✅ 猜对了！获得 '+bonus+' 分！<br><br><strong>完整真相：</strong><br>'+story.answer;
+    $('guessResult').style.color = 'var(--accent2)';
+    setTimeout(()=>{ hideGuessModal(); showReveal(true); }, 2000);
+  } else {
+    $('guessResult').textContent = '❌ 不太对，继续推理吧！';
+    $('guessResult').style.color = 'var(--danger)';
+    setTimeout(()=>hideGuessModal(), 1500);
+  }
+}
+
+function evaluateGuess(guess, answer) {
+  const g = guess.toLowerCase(); const a = answer.toLowerCase();
+  const stop = new Set(['的','了','是','在','和','就','也','都','要','把','被','让','给','从','到','这','那','它','他','她','们','有','没','不','很','会','能','可','以','为','与']);
+  const aw = a.split(/[\s，。！？、：；""''（）\n,.!?:;()]/).filter(w=>w.length>=2&&!stop.has(w));
+  const gw = g.split(/[\s，。！？、：；""''（）\n,.!?:;()]/).filter(w=>w.length>=2&&!stop.has(w));
+  if (!aw.length||!gw.length) return 0;
+
+  let match=0;
+  for (const w of gw) { if(aw.some(x=>x.includes(w)||w.includes(x))) match++; }
+  const logic = ['凶手','杀了','谋杀','伪装','密室','诡计','下毒','替换','冒充','跟踪','计划','预谋','意外','失手','误会','巧合'];
+  const hasLogic = logic.some(e=>g.includes(e)&&a.includes(e));
+  return Math.min(match/Math.max(aw.length,gw.length)+(hasLogic?0.15:0), 0.95);
+}
+
+function revealAnswer() {
+  if (revealed) return;
+  if (!confirm('确定要看答案吗？')) return;
+  showReveal(false);
+}
+
+function showReveal(guessed) {
+  revealed = true;
+  $('questionInput').disabled = true;
+  $('btnAsk').disabled = true;
+  const story = getCurrentStory();
+  $('revealTitle').textContent = '🔍 真相揭晓';
+  $('revealResult').textContent = guessed ? '🎉 你猜对了！' : '看看真相是什么：';
+  $('revealAnswer').textContent = story.answer;
+  showPage('pageReveal');
+}
+
+function nextStory() {
+  if (currentIndex+1 < STORIES.length) {
+    currentIndex++;
+    loadStory(currentIndex);
+    showPage('pageGame');
+  } else {
+    showToast('🎉 全部完成！你一共猜对了 '+correctCount+'/'+STORIES.length+' 个故事！','success');
+    backToLobby();
+  }
+}
+
+function backToLobby() { showPage('pageLobby'); }
+
+function esc(s) { if(!s)return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// 回车提问
+$('questionInput').addEventListener('keydown', e=>{ if(e.key==='Enter') askQuestion(); });
+$('guessInput').addEventListener('keydown', e=>{ if(e.key==='Enter'&&e.ctrlKey) submitGuess(); });
+</script>
+</body>
+</html>
